@@ -409,7 +409,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
 
       // update() silently no-ops on fresh cached info, so forcing LOADING here would never resolve.
       if (this._weather.info.is_valid() || this._weather.loading) {
-        this._onWeatherInfoUpdate(this._weather);
+        this._onWeatherInfoUpdate();
         return;
       }
 
@@ -453,11 +453,12 @@ const WeatherOClockPanelWeather = GObject.registerClass(
         maximumFractionDigits: decimals,
       });
 
-      const formattedTemp = numberFormatter.format(tempValue);
-
       let temp = "";
 
       if (tempOk) {
+
+        const formattedTemp = numberFormatter.format(tempValue);
+
         switch (unit) {
           case GWeather.TemperatureUnit.KELVIN:
             temp = `${formattedTemp} K`;
