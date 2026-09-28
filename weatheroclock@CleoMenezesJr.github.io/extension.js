@@ -53,7 +53,11 @@ export default class WeatherOClock extends Extension {
     const weather = dateMenu._weatherItem._weatherClient;
     this._originalClockDisplay = dateMenu._clockDisplay;
     this._settings = this.getSettings();
-    this._panelWeather = new WeatherOClockPanelWeather(weather, this._originalClockDisplay);
+    this._panelWeather = new WeatherOClockPanelWeather(
+      weather,
+      this._originalClockDisplay,
+      this._settings,
+    );
 
     this._topBox = new St.BoxLayout({ style_class: "clock" });
 
@@ -126,7 +130,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
     GTypeName: "WeatherOClockPanelWeather",
   },
   class WeatherOClockPanelWeather extends St.BoxLayout {
-    _init(weather, clockDisplay) {
+    _init(weather, clockDisplay, settings) {
       super._init({
         visible: false,
         y_align: Clutter.ActorAlign.CENTER,
@@ -134,6 +138,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
 
       this._weather = weather;
       this._clockDisplay = clockDisplay;
+      this._settings = settings;
       this._signals = [];
       this._descriptionTimer = null;
       this._retryTimer = null;
@@ -173,6 +178,8 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._pushSignal(this._weather, "changed", this._onWeatherInfoUpdate.bind(this));
       this._pushSignal(this._weather, "notify::available", this._onAvailableChanged.bind(this));
       this._pushSignal(this._monitor, "notify::connectivity", this._onConnectivityChanged.bind(this));
+      this._pushSignal(this._settings, "changed::temperature-unit", this._onWeatherInfoUpdate.bind(this));
+      this._pushSignal(this._settings, "changed::decimal-places", this._onWeatherInfoUpdate.bind(this));
 
       this._evaluateInitialState();
     }
@@ -190,6 +197,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._weather = null;
       this._monitor = null;
       this._clockDisplay = null;
+      this._settings = null;
       super.destroy();
     }
 
@@ -413,8 +421,10 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._setState(STATES.LOADING);
     }
 
-    _onWeatherInfoUpdate(weather) {
-      if (!this._weather) return;
+    _onWeatherInfoUpdate() {
+      const weather = this._weather;
+
+      if (!weather) return;
       if (this._state === STATES.UNAVAILABLE) return;
 
       if (weather.loading) {
@@ -424,8 +434,48 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       }
 
       const iconName = weather.info.get_symbolic_icon_name();
-      const [tempOk] = weather.info.get_value_temp(GWeather.TemperatureUnit.DEFAULT);
-      const temp = tempOk ? weather.info.get_temp_summary() : "";
+      const temperatureUnits = [
+        GWeather.TemperatureUnit.DEFAULT,
+        GWeather.TemperatureUnit.CENTIGRADE,
+        GWeather.TemperatureUnit.FAHRENHEIT,
+        GWeather.TemperatureUnit.KELVIN,
+      ];
+
+      const unitIndex = this._settings.get_uint("temperature-unit");
+      const unit = temperatureUnits[unitIndex] ?? GWeather.TemperatureUnit.DEFAULT;
+
+      const [tempOk, tempValue] = weather.info.get_value_temp(unit);
+
+      const decimals = this._settings.get_uint("decimal-places");
+
+      const numberFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+
+      const formattedTemp = numberFormatter.format(tempValue);
+
+      let temp = "";
+
+      if (tempOk) {
+        switch (unit) {
+          case GWeather.TemperatureUnit.KELVIN:
+            temp = `${formattedTemp} K`;
+            break;
+
+          case GWeather.TemperatureUnit.CENTIGRADE:
+            temp = `${formattedTemp} °C`;
+            break;
+
+          case GWeather.TemperatureUnit.FAHRENHEIT:
+            temp = `${formattedTemp} °F`;
+            break;
+
+          default:
+            temp = weather.info.get_temp_summary();
+            break;
+        }
+      }
 
       if (iconName && iconName !== "weather-missing-symbolic" && temp) {
         this._cancelRetryTimer();
