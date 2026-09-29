@@ -14,7 +14,7 @@ import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/
 export default class WeatherOClockPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
     window._settings = this.getSettings();
-    window.set_default_size(360, 200);
+    window.set_default_size(520, 350);
 
     const builder = new Gtk.Builder();
     builder.add_from_file(`${this.path}/prefs.ui`);
@@ -25,6 +25,14 @@ export default class WeatherOClockPreferences extends ExtensionPreferences {
       "weather-after-clock",
       weatherAfterClock,
       "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
+    const temperatureUnit = builder.get_object("TemperatureUnit");
+    window._settings.bind(
+      "temperature-unit",
+      temperatureUnit,
+      "selected",
       Gio.SettingsBindFlags.DEFAULT,
     );
 

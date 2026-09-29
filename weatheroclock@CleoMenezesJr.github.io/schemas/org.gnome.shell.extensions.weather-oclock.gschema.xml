@@ -5,5 +5,13 @@
     <key name="weather-after-clock" type="b">
       <default>false</default>
     </key>
+    <key name="temperature-unit" type="u">
+      <default>0</default>
+      <summary>Temperature unit</summary>
+      <description>
+        Temperature unit used in the panel:
+        0 = system default, 1 = Celsius, 2 = Fahrenheit, 3 = Kelvin
+      </description>
+    </key>
   </schema>
 </schemalist>

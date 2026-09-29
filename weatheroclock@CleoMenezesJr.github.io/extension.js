@@ -53,7 +53,11 @@ export default class WeatherOClock extends Extension {
     const weather = dateMenu._weatherItem._weatherClient;
     this._originalClockDisplay = dateMenu._clockDisplay;
     this._settings = this.getSettings();
-    this._panelWeather = new WeatherOClockPanelWeather(weather, this._originalClockDisplay);
+    this._panelWeather = new WeatherOClockPanelWeather(
+      weather,
+      this._originalClockDisplay,
+      this._settings,
+    );
 
     this._topBox = new St.BoxLayout({ style_class: "clock" });
 
@@ -126,7 +130,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
     GTypeName: "WeatherOClockPanelWeather",
   },
   class WeatherOClockPanelWeather extends St.BoxLayout {
-    _init(weather, clockDisplay) {
+    _init(weather, clockDisplay, settings) {
       super._init({
         visible: false,
         y_align: Clutter.ActorAlign.CENTER,
@@ -134,6 +138,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
 
       this._weather = weather;
       this._clockDisplay = clockDisplay;
+      this._settings = settings;
       this._signals = [];
       this._descriptionTimer = null;
       this._retryTimer = null;
@@ -173,6 +178,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._pushSignal(this._weather, "changed", this._onWeatherInfoUpdate.bind(this));
       this._pushSignal(this._weather, "notify::available", this._onAvailableChanged.bind(this));
       this._pushSignal(this._monitor, "notify::connectivity", this._onConnectivityChanged.bind(this));
+      this._pushSignal(this._settings, "changed::temperature-unit", this._onWeatherInfoUpdate.bind(this));
 
       this._evaluateInitialState();
     }
@@ -190,6 +196,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._weather = null;
       this._monitor = null;
       this._clockDisplay = null;
+      this._settings = null;
       super.destroy();
     }
 
@@ -372,7 +379,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
         if (!this._weather.info.is_valid())
           this._setState(STATES.OFFLINE);
         return;
-      }
+      };
 
       if (this._state === STATES.OFFLINE || this._state === STATES.STALE) {
         this._retryCount = 0;
@@ -401,7 +408,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
 
       // update() silently no-ops on fresh cached info, so forcing LOADING here would never resolve.
       if (this._weather.info.is_valid() || this._weather.loading) {
-        this._onWeatherInfoUpdate(this._weather);
+        this._onWeatherInfoUpdate();
         return;
       }
 
@@ -413,19 +420,72 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._setState(STATES.LOADING);
     }
 
-    _onWeatherInfoUpdate(weather) {
-      if (!this._weather) return;
+    _formatTemperature(weather, unit) {
+      if (unit === GWeather.TemperatureUnit.DEFAULT)
+        return weather.info.get_temp_summary();
+
+      const [tempOk, value] = weather.info.get_value_temp(unit);
+
+      if (!tempOk)
+        return "";
+
+      let roundedValue;
+      let suffix;
+
+      switch (unit) {
+        case GWeather.TemperatureUnit.KELVIN:
+          roundedValue = Math.floor(value);
+          suffix = "K";
+          break;
+
+        case GWeather.TemperatureUnit.CENTIGRADE:
+          roundedValue = Math.floor(value + 0.5);
+          suffix = "°C";
+          break;
+
+        case GWeather.TemperatureUnit.FAHRENHEIT:
+          roundedValue = Math.floor(value + 0.5);
+          suffix = "°F";
+          break;
+
+        default:
+          return "";
+      }
+
+      const formattedValue = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 0,
+      }).format(roundedValue);
+
+      return `${formattedValue} ${suffix}`;
+    }
+
+    _onWeatherInfoUpdate() {
+      const weather = this._weather;
+
+      if (!weather) return;
       if (this._state === STATES.UNAVAILABLE) return;
 
       if (weather.loading) {
-        if (this._state !== STATES.SHOWING)
+        if (this._state !== STATES.SHOWING) {
           this._setState(STATES.LOADING);
+        }
         return;
       }
 
       const iconName = weather.info.get_symbolic_icon_name();
-      const [tempOk] = weather.info.get_value_temp(GWeather.TemperatureUnit.DEFAULT);
-      const temp = tempOk ? weather.info.get_temp_summary() : "";
+
+      const temperatureUnits = [
+        GWeather.TemperatureUnit.DEFAULT,
+        GWeather.TemperatureUnit.CENTIGRADE,
+        GWeather.TemperatureUnit.FAHRENHEIT,
+        GWeather.TemperatureUnit.KELVIN,
+      ];
+
+      const unitIndex = this._settings.get_uint("temperature-unit");
+      const unit =
+        temperatureUnits[unitIndex] ?? GWeather.TemperatureUnit.DEFAULT;
+
+      const temp = this._formatTemperature(weather, unit);
 
       if (iconName && iconName !== "weather-missing-symbolic" && temp) {
         this._cancelRetryTimer();
