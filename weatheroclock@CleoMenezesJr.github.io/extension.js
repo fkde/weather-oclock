@@ -179,7 +179,6 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._pushSignal(this._weather, "notify::available", this._onAvailableChanged.bind(this));
       this._pushSignal(this._monitor, "notify::connectivity", this._onConnectivityChanged.bind(this));
       this._pushSignal(this._settings, "changed::temperature-unit", this._onWeatherInfoUpdate.bind(this));
-      this._pushSignal(this._settings, "changed::decimal-places", this._onWeatherInfoUpdate.bind(this));
 
       this._evaluateInitialState();
     }
@@ -380,7 +379,7 @@ const WeatherOClockPanelWeather = GObject.registerClass(
         if (!this._weather.info.is_valid())
           this._setState(STATES.OFFLINE);
         return;
-      }
+      };
 
       if (this._state === STATES.OFFLINE || this._state === STATES.STALE) {
         this._retryCount = 0;
@@ -446,30 +445,22 @@ const WeatherOClockPanelWeather = GObject.registerClass(
 
       const [tempOk, tempValue] = weather.info.get_value_temp(unit);
 
-      const decimals = this._settings.get_uint("decimal-places");
-
-      const numberFormatter = new Intl.NumberFormat(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      });
-
       let temp = "";
 
       if (tempOk) {
-
-        const formattedTemp = numberFormatter.format(tempValue);
+        const roundedTemp = Math.round(tempValue);
 
         switch (unit) {
           case GWeather.TemperatureUnit.KELVIN:
-            temp = `${formattedTemp} K`;
+            temp = `${roundedTemp} K`;
             break;
 
           case GWeather.TemperatureUnit.CENTIGRADE:
-            temp = `${formattedTemp} °C`;
+            temp = `${roundedTemp} °C`;
             break;
 
           case GWeather.TemperatureUnit.FAHRENHEIT:
-            temp = `${formattedTemp} °F`;
+            temp = `${roundedTemp} °F`;
             break;
 
           default:

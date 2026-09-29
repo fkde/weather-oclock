@@ -39,22 +39,6 @@
           </object>
         </child>
 
-        <child>
-          <object class="AdwComboRow" id="DecimalPlaces">
-            <property name="title" translatable="yes">Decimal Places</property>
-
-            <property name="model">
-              <object class="GtkStringList">
-                <items>
-                  <item translatable="yes">None</item>
-                  <item translatable="yes">1</item>
-                  <item translatable="yes">2</item>
-                </items>
-              </object>
-            </property>
-          </object>
-        </child>
-
       </object>
     </child>
 

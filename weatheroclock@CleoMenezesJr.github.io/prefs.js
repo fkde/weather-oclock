@@ -14,7 +14,7 @@ import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/
 export default class WeatherOClockPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
     window._settings = this.getSettings();
-    window.set_default_size(520, 390);
+    window.set_default_size(520, 350);
 
     const builder = new Gtk.Builder();
     builder.add_from_file(`${this.path}/prefs.ui`);
@@ -32,14 +32,6 @@ export default class WeatherOClockPreferences extends ExtensionPreferences {
     window._settings.bind(
       "temperature-unit",
       temperatureUnit,
-      "selected",
-      Gio.SettingsBindFlags.DEFAULT,
-    );
-
-    const decimalPlaces = builder.get_object("DecimalPlaces");
-    window._settings.bind(
-      "decimal-places",
-      decimalPlaces,
       "selected",
       Gio.SettingsBindFlags.DEFAULT,
     );
