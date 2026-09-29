@@ -420,6 +420,45 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       this._setState(STATES.LOADING);
     }
 
+    _formatTemperature(weather, unit) {
+      if (unit === GWeather.TemperatureUnit.DEFAULT)
+        return weather.info.get_temp_summary();
+
+      const [tempOk, value] = weather.info.get_value_temp(unit);
+
+      if (!tempOk)
+        return "";
+
+      let roundedValue;
+      let suffix;
+
+      switch (unit) {
+        case GWeather.TemperatureUnit.KELVIN:
+          roundedValue = Math.floor(value);
+          suffix = "K";
+          break;
+
+        case GWeather.TemperatureUnit.CENTIGRADE:
+          roundedValue = Math.floor(value + 0.5);
+          suffix = "°C";
+          break;
+
+        case GWeather.TemperatureUnit.FAHRENHEIT:
+          roundedValue = Math.floor(value + 0.5);
+          suffix = "°F";
+          break;
+
+        default:
+          return "";
+      }
+
+      const formattedValue = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 0,
+      }).format(roundedValue);
+
+      return `${formattedValue} ${suffix}`;
+    }
+
     _onWeatherInfoUpdate() {
       const weather = this._weather;
 
@@ -427,12 +466,14 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       if (this._state === STATES.UNAVAILABLE) return;
 
       if (weather.loading) {
-        if (this._state !== STATES.SHOWING)
+        if (this._state !== STATES.SHOWING) {
           this._setState(STATES.LOADING);
+        }
         return;
       }
 
       const iconName = weather.info.get_symbolic_icon_name();
+
       const temperatureUnits = [
         GWeather.TemperatureUnit.DEFAULT,
         GWeather.TemperatureUnit.CENTIGRADE,
@@ -441,33 +482,10 @@ const WeatherOClockPanelWeather = GObject.registerClass(
       ];
 
       const unitIndex = this._settings.get_uint("temperature-unit");
-      const unit = temperatureUnits[unitIndex] ?? GWeather.TemperatureUnit.DEFAULT;
+      const unit =
+        temperatureUnits[unitIndex] ?? GWeather.TemperatureUnit.DEFAULT;
 
-      const [tempOk, tempValue] = weather.info.get_value_temp(unit);
-
-      let temp = "";
-
-      if (tempOk) {
-        const roundedTemp = Math.round(tempValue);
-
-        switch (unit) {
-          case GWeather.TemperatureUnit.KELVIN:
-            temp = `${roundedTemp} K`;
-            break;
-
-          case GWeather.TemperatureUnit.CENTIGRADE:
-            temp = `${roundedTemp} °C`;
-            break;
-
-          case GWeather.TemperatureUnit.FAHRENHEIT:
-            temp = `${roundedTemp} °F`;
-            break;
-
-          default:
-            temp = weather.info.get_temp_summary();
-            break;
-        }
-      }
+      const temp = this._formatTemperature(weather, unit);
 
       if (iconName && iconName !== "weather-missing-symbolic" && temp) {
         this._cancelRetryTimer();
